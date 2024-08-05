@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 use regex::Regex;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 /// Merges a vector of entries into a single JSON object, optionally filtering by a regex pattern.
 ///
