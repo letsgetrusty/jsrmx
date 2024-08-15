@@ -2,47 +2,40 @@ mod file;
 
 use file::{read_entries_from_directory, read_hashmap};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::{fmt, str};
+use std::{
+    collections::HashMap,
+    fmt,
+    fs::File,
+    io::{self, BufRead, BufReader, Read},
+    path::{Path, PathBuf},
+    str,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Clone, Debug)]
 pub enum Input {
-    Stdin {
-        reader: Arc<Mutex<BufReader<io::Stdin>>>,
-    },
+    Directory(PathBuf),
     File {
         path: PathBuf,
         reader: Arc<Mutex<BufReader<File>>>,
     },
-    Directory(PathBuf),
+    Stdin {
+        reader: Arc<Mutex<BufReader<io::Stdin>>>,
+    },
 }
 
 impl Input {
-    pub fn read_line(&self, buf: &mut String) -> Result<(), String> {
-        match self {
-            Input::Stdin { reader } => {
-                let mut reader = reader.lock().map_err(|e| e.to_string())?;
-                reader.read_line(buf).map_err(|e| e.to_string())?;
-                Ok(())
-            }
-            Input::File { reader, .. } => {
-                let mut reader = reader.lock().map_err(|e| e.to_string())?;
-                reader.read_line(buf).map_err(|e| e.to_string())?;
-                Ok(())
-            }
-            Input::Directory(path) => Err(format!(
-                "Cannot read_line from directory {}",
-                path.display()
-            )),
-        }
-    }
-
     pub fn get_entries(&self, sort: bool) -> Vec<(String, Value)> {
         match self {
+            Input::Directory(dir) => match read_entries_from_directory(dir, sort) {
+                Ok(entries) => entries,
+                Err(e) => {
+                    panic!("Error reading entries from directory: {}", e);
+                }
+            },
+            Input::File { path, .. } => {
+                panic!("Cannot read entries from file: {path:?}");
+            }
             Input::Stdin { .. } => {
                 let mut entries = Vec::new();
                 let mut buf = String::new();
@@ -60,30 +53,60 @@ impl Input {
                 }
                 entries
             }
-            Input::File { path, .. } => {
-                panic!("Cannot read entries from file: {path:?}");
-            }
-            Input::Directory(dir) => match read_entries_from_directory(dir, sort) {
-                Ok(entries) => entries,
-                Err(e) => {
-                    panic!("Error reading entries from directory: {}", e);
-                }
-            },
         }
     }
 
-    pub fn get_object(&self) -> std::io::Result<HashMap<String, Value>> {
+    pub fn get_object(&self) -> io::Result<HashMap<String, Value>> {
         match self {
-            Input::Stdin { .. } => {
-                let mut buffer = String::new();
-                std::io::stdin().read_to_string(&mut buffer)?;
-                Ok(serde_json::from_str(&buffer)?)
-            }
-            Input::File { path, .. } => Ok(read_hashmap(path)?),
-            Input::Directory(input) => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Input::Directory(input) => Err(io::Error::new(
+                io::ErrorKind::Other,
                 format!("Cannot split a directory: {input:?}"),
             )),
+            Input::File { path, .. } => Ok(read_hashmap(path)?),
+            Input::Stdin { .. } => {
+                let mut buffer = String::new();
+                io::stdin().read_to_string(&mut buffer)?;
+                Ok(serde_json::from_str(&buffer)?)
+            }
+        }
+    }
+
+    pub fn read_line(&self, buf: &mut String) -> Result<(), String> {
+        match self {
+            Input::Directory(path) => Err(format!(
+                "Cannot read_line from directory {}",
+                path.display()
+            )),
+            Input::File { reader, .. } => {
+                let mut reader = reader.lock().map_err(|e| e.to_string())?;
+                reader.read_line(buf).map_err(|e| e.to_string())?;
+                Ok(())
+            }
+            Input::Stdin { reader } => {
+                let mut reader = reader.lock().map_err(|e| e.to_string())?;
+                reader.read_line(buf).map_err(|e| e.to_string())?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl AsRef<Path> for Input {
+    fn as_ref(&self) -> &Path {
+        match self {
+            Input::Directory(path) => path.as_path(),
+            Input::File { path, .. } => path.as_path(),
+            Input::Stdin { .. } => Path::new("-"),
+        }
+    }
+}
+
+impl AsRef<PathBuf> for Input {
+    fn as_ref(&self) -> &PathBuf {
+        match self {
+            Input::Directory(path) => path,
+            Input::File { path, .. } => path,
+            Input::Stdin { .. } => panic!("Cannot convert stdin to PathBuf"),
         }
     }
 }
@@ -91,9 +114,9 @@ impl Input {
 impl fmt::Display for Input {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Input::Stdin { .. } => write!(f, "-"),
-            Input::File { path, .. } => write!(f, "{}", path.display()),
             Input::Directory(path) => write!(f, "{}", path.display()),
+            Input::File { path, .. } => write!(f, "{}", path.display()),
+            Input::Stdin { .. } => write!(f, "-"),
         }
     }
 }
@@ -108,36 +131,16 @@ impl str::FromStr for Input {
             }),
             input => {
                 let path = PathBuf::from(input);
-                match path.is_dir() {
-                    true => Ok(Input::Directory(path)),
-                    false => Ok(Input::File {
-                        reader: Arc::new(Mutex::new(BufReader::new(
-                            File::open(&path).map_err(|e| e.to_string())?,
-                        ))),
+                if path.is_dir() {
+                    Ok(Input::Directory(path))
+                } else {
+                    let file = File::open(&path).map_err(|e| e.to_string())?;
+                    Ok(Input::File {
+                        reader: Arc::new(Mutex::new(BufReader::new(file))),
                         path,
-                    }),
+                    })
                 }
             }
-        }
-    }
-}
-
-impl AsRef<Path> for Input {
-    fn as_ref(&self) -> &Path {
-        match self {
-            Input::Stdin { .. } => Path::new("-"),
-            Input::File { path, .. } => path.as_path(),
-            Input::Directory(path) => path.as_path(),
-        }
-    }
-}
-
-impl AsRef<PathBuf> for Input {
-    fn as_ref(&self) -> &PathBuf {
-        match self {
-            Input::Stdin { .. } => panic!("Cannot convert stdin to PathBuf"),
-            Input::File { path, .. } => path,
-            Input::Directory(path) => path,
         }
     }
 }

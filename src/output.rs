@@ -3,11 +3,14 @@ mod file;
 use file::write_object;
 use rayon::prelude::*;
 use serde_json::Value;
-use std::fs::{self, File};
-use std::io::{self, BufWriter, Write};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::{fmt, str};
+use std::{
+    fmt,
+    fs::{self, File},
+    io::{self, BufWriter, Write},
+    path::{Path, PathBuf},
+    str,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Clone, Debug)]
 pub enum Output {
@@ -26,14 +29,6 @@ pub enum Output {
 }
 
 impl Output {
-    pub fn set_pretty(&mut self) {
-        match self {
-            Self::Directory { pretty, .. } => *pretty = true,
-            Self::File { pretty, .. } => *pretty = true,
-            Self::Stdout { pretty, .. } => *pretty = true,
-        }
-    }
-
     pub fn append(&self, value: Value) -> io::Result<()> {
         match self {
             Self::Directory { .. } => {
@@ -59,6 +54,14 @@ impl Output {
             }
         }
         Ok(())
+    }
+
+    pub fn set_pretty(&mut self) {
+        match self {
+            Self::Directory { pretty, .. } => *pretty = true,
+            Self::File { pretty, .. } => *pretty = true,
+            Self::Stdout { pretty, .. } => *pretty = true,
+        }
     }
 
     pub fn write(&self, path: &PathBuf, value: Value) -> io::Result<()> {
@@ -94,11 +97,6 @@ impl Output {
                     }
                 });
             }
-            Output::Stdout { .. } => {
-                for (key, value) in entries {
-                    self.append(serde_json::json!({key: value}))?;
-                }
-            }
             Output::File { pretty, .. } => {
                 if *pretty {
                     log::warn!("Pretty printing not recommended for writing entries to a file!");
@@ -110,17 +108,32 @@ impl Output {
                     }
                 })
             }
+            Output::Stdout { .. } => {
+                for (key, value) in entries {
+                    self.append(serde_json::json!({key: value}))?;
+                }
+            }
         }
         Ok(())
+    }
+}
+
+impl AsRef<Path> for Output {
+    fn as_ref(&self) -> &Path {
+        match self {
+            Output::Directory { path, .. } => path.as_path(),
+            Output::File { path, .. } => path.as_path(),
+            Output::Stdout { .. } => Path::new("-"),
+        }
     }
 }
 
 impl fmt::Display for Output {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Output::Stdout { .. } => write!(f, "-"),
-            Output::File { path, .. } => write!(f, "{}", path.display()),
             Output::Directory { path, .. } => write!(f, "{}", path.display()),
+            Output::File { path, .. } => write!(f, "{}", path.display()),
+            Output::Stdout { .. } => write!(f, "-"),
         }
     }
 }
@@ -169,16 +182,6 @@ impl str::FromStr for Output {
                 path,
                 pretty: false,
             })
-        }
-    }
-}
-
-impl AsRef<Path> for Output {
-    fn as_ref(&self) -> &Path {
-        match self {
-            Output::Stdout { .. } => Path::new("-"),
-            Output::File { path, .. } => path.as_path(),
-            Output::Directory { path, .. } => path.as_path(),
         }
     }
 }
