@@ -1,6 +1,5 @@
-use crate::{Input, Output};
+use crate::{input::Input, output::Output};
 use serde_json::Value;
-use std::io;
 use std::path::PathBuf;
 
 /// Bundles JSON files from the specified directory into a single output.
@@ -10,24 +9,24 @@ use std::path::PathBuf;
 /// * `dir` - A reference to a `PathBuf` representing the directory containing JSON files.
 /// * `output` - A reference to an `Output` where the bundled JSON will be written.
 
-pub fn bundle(input: &Input, output: &Output) -> io::Result<()> {
+pub fn bundle(input: &Input, output: &Output) -> std::io::Result<()> {
     if let Output::Directory { .. } = output {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
             "Cannot bundle to a directory",
         ));
     }
     match input {
         Input::Directory(dir) => read_directory_to_output(dir, output),
         Input::File { .. } => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
                 "Cannot bundle from a single file, multiple objects in a file is invalid JSON!",
             ))
         }
         Input::Stdin { .. } => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
                 "Why bundle from stdin? Just redirect output to a file!",
             ))
         }
@@ -67,57 +66,30 @@ fn read_directory_to_output(dir: &PathBuf, output: &Output) -> std::io::Result<(
 /// * `output` - A reference to an `Output` where the JSON files will be written.
 /// * `name` - An optional name for the JSON objects, used as a key to extract values.
 
-pub fn unbundle(input: &Input, output: &Output, name: Option<&str>) -> io::Result<()> {
-    let (pretty, path): (bool, Option<&PathBuf>) = match output {
-        Output::Stdout { pretty } => (*pretty, None),
-        Output::Directory { path, pretty } => (*pretty, Some(path)),
-        Output::File { path, .. } => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("Cannot unbundle to a file: {path:?}"),
-            ))
-        }
-    };
-
-    match path {
-        Some(path) => {
-            log::info!("Writing JSON objects to {path:?}");
-            if !path.exists() {
-                std::fs::create_dir_all(path)?;
-            }
-        }
-        None => log::info!("Writing JSON objects to stdout"),
-    };
-
+pub fn unbundle(input: &Input, output: &Output, name: Option<&str>) -> std::io::Result<()> {
     let mut i: usize = 0;
     let dots_to_slashes =
         |str: &str| "/".to_string() + &str.split('.').collect::<Vec<&str>>().join("/");
 
-    let write_json = |i: usize, json: Value| {
+    let name_entry = |i: usize, json: &Value| {
         let default_name = format!("object-{i:06}");
-        let new_name = match name {
+        match name {
             Some(name) => json
                 .pointer(&dots_to_slashes(&name))
                 .and_then(|value| value.as_str())
-                .unwrap_or(&default_name),
-            None => &default_name,
-        };
-
-        match path {
-            Some(path) => {
-                let filename = path.join(format!("{new_name}.json"));
-                let _ = output.write(&filename, json);
-                log::info!("Wrote object to {}", filename.display());
-            }
-            None if pretty => println!("{:#}", json),
-            None => println!("{json}"),
-        };
+                .unwrap_or(&default_name)
+                .to_string(),
+            None => default_name,
+        }
     };
 
     let mut buf = String::new();
     while let Ok(_) = input.read_line(&mut buf) {
         match serde_json::from_str::<Value>(&buf) {
-            Ok(json) => write_json(i, json),
+            Ok(json) => {
+                let entry = vec![(name_entry(i, &json), json)];
+                output.write_entries(entry)?
+            }
             Err(e) if serde_json::Error::is_eof(&e) => break,
             Err(e) => log::error!("Failed to parse line {}: {}", i, e),
         }

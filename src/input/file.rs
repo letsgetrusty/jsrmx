@@ -1,9 +1,5 @@
 use serde_json::Value;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
-use std::path::PathBuf;
-use std::{fs, io};
+use std::{collections::HashMap, fs::File, io::BufReader, path::PathBuf};
 
 /// Reads a JSON object from the specified file path.
 ///
@@ -13,7 +9,7 @@ use std::{fs, io};
 ///
 /// # Returns
 ///
-/// Returns an `io::Result<Value>` which contains the parsed JSON object on success,
+/// Returns an `std::io::Result<Value>` which contains the parsed JSON object on success,
 /// or an error if the file cannot be read or the content is not valid JSON.
 ///
 /// # Example
@@ -26,7 +22,7 @@ use std::{fs, io};
 /// }
 /// ```
 
-pub fn read_object(input: &PathBuf) -> io::Result<Value> {
+pub fn read_object(input: &PathBuf) -> std::io::Result<Value> {
     let file = File::open(input)?;
     let reader = BufReader::new(file);
     let json_value = serde_json::from_reader(reader)?;
@@ -55,7 +51,7 @@ pub fn read_object(input: &PathBuf) -> io::Result<Value> {
 /// }
 /// ```
 
-pub fn read_hashmap(input: &PathBuf) -> io::Result<HashMap<String, Value>> {
+pub fn read_hashmap(input: &PathBuf) -> std::io::Result<HashMap<String, Value>> {
     let file = File::open(input)?;
     let reader = BufReader::new(file);
     let hashmap: HashMap<String, Value> = serde_json::from_reader(reader)?;
@@ -72,7 +68,7 @@ pub fn read_hashmap(input: &PathBuf) -> io::Result<HashMap<String, Value>> {
 ///
 /// # Returns
 ///
-/// Returns an `io::Result<Vec<(String, Value)>>` which contains a vector of tuples, where each tuple
+/// Returns an `std::io::Result<Vec<(String, Value)>>` which contains a vector of tuples, where each tuple
 /// consists of the filename (without extension) and the corresponding parsed JSON object. If the
 /// directory cannot be read or any file cannot be parsed as JSON, it returns an error.
 ///
@@ -86,10 +82,13 @@ pub fn read_hashmap(input: &PathBuf) -> io::Result<HashMap<String, Value>> {
 /// }
 /// ```
 
-pub fn read_entries_from_directory(dir: &PathBuf, sort: bool) -> io::Result<Vec<(String, Value)>> {
+pub fn read_entries_from_directory(
+    dir: &PathBuf,
+    sort: bool,
+) -> std::io::Result<Vec<(String, Value)>> {
     let mut entries: Vec<(String, Value)> = Vec::new();
     let dir_path = PathBuf::from(dir);
-    let dir_entries = fs::read_dir(dir_path)?;
+    let dir_entries = std::fs::read_dir(dir_path)?;
     for entry in dir_entries {
         if let Ok(entry) = entry {
             let file_path = entry.path();

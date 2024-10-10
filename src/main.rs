@@ -1,16 +1,9 @@
-mod input;
-mod json;
-mod ndjson;
-mod output;
-
 use clap::{Parser, Subcommand};
-use input::Input;
-use output::Output;
-use std::panic;
+use jsrmx::{input::Input, json, ndjson, output::Output};
 
 #[derive(Parser)]
 #[command(name = "jsrmx")]
-#[command(about = "A tool to break apart or build large JSON and NDJSON files.", long_about = None)]
+#[command(about = "A tool to break apart or combine large JSON and NDJSON files.", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -91,7 +84,7 @@ fn main() {
         .format_timestamp_millis()
         .init();
 
-    panic::set_hook(Box::new(|panic| {
+    std::panic::set_hook(Box::new(|panic| {
         // Use the error level to log the panic
         log::debug!("{:?}", panic);
         log::error!("{}", panic);
@@ -111,17 +104,9 @@ fn main() {
             if pretty && !compact {
                 output.set_pretty();
             }
-            match output {
-                Output::Stdout { .. } => output.append(merged_object).unwrap_or_else(|e| {
-                    log::error!("Error writing to stdout: {e}");
-                }),
-                Output::File { .. } => output.append(merged_object).unwrap_or_else(|e| {
-                    log::error!("Error writing to file: {e}");
-                }),
-                Output::Directory { path, .. } => {
-                    log::error!("Cannot merge to a directory: {path:?}");
-                }
-            };
+            output
+                .append(merged_object)
+                .unwrap_or_else(|e| log::error!("Error writing to output: {e}"));
         }
         Commands::Split {
             compact,

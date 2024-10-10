@@ -1,14 +1,11 @@
 mod file;
 
-use file::{read_entries_from_directory, read_hashmap};
 use serde_json::Value;
 use std::{
     collections::HashMap,
-    fmt,
     fs::File,
-    io::{self, BufRead, BufReader, Read},
+    io::{stdin, BufRead, BufReader, Read, Stdin},
     path::{Path, PathBuf},
-    str,
     sync::{Arc, Mutex},
 };
 
@@ -20,14 +17,14 @@ pub enum Input {
         reader: Arc<Mutex<BufReader<File>>>,
     },
     Stdin {
-        reader: Arc<Mutex<BufReader<io::Stdin>>>,
+        reader: Arc<Mutex<BufReader<Stdin>>>,
     },
 }
 
 impl Input {
     pub fn get_entries(&self, sort: bool) -> Vec<(String, Value)> {
         match self {
-            Input::Directory(dir) => match read_entries_from_directory(dir, sort) {
+            Input::Directory(dir) => match file::read_entries_from_directory(dir, sort) {
                 Ok(entries) => entries,
                 Err(e) => {
                     panic!("Error reading entries from directory: {}", e);
@@ -56,16 +53,16 @@ impl Input {
         }
     }
 
-    pub fn get_object(&self) -> io::Result<HashMap<String, Value>> {
+    pub fn get_object(&self) -> std::io::Result<HashMap<String, Value>> {
         match self {
-            Input::Directory(input) => Err(io::Error::new(
-                io::ErrorKind::Other,
+            Input::Directory(input) => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
                 format!("Cannot split a directory: {input:?}"),
             )),
-            Input::File { path, .. } => Ok(read_hashmap(path)?),
+            Input::File { path, .. } => Ok(file::read_hashmap(path)?),
             Input::Stdin { .. } => {
                 let mut buffer = String::new();
-                io::stdin().read_to_string(&mut buffer)?;
+                stdin().read_to_string(&mut buffer)?;
                 Ok(serde_json::from_str(&buffer)?)
             }
         }
@@ -111,8 +108,8 @@ impl AsRef<PathBuf> for Input {
     }
 }
 
-impl fmt::Display for Input {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for Input {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Input::Directory(path) => write!(f, "{}", path.display()),
             Input::File { path, .. } => write!(f, "{}", path.display()),
@@ -121,13 +118,13 @@ impl fmt::Display for Input {
     }
 }
 
-impl str::FromStr for Input {
+impl std::str::FromStr for Input {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
             "-" => Ok(Input::Stdin {
-                reader: Arc::new(Mutex::new(BufReader::new(io::stdin()))),
+                reader: Arc::new(Mutex::new(BufReader::new(stdin()))),
             }),
             input => {
                 let path = PathBuf::from(input);
