@@ -1,5 +1,9 @@
 use clap::{Parser, Subcommand};
-use jsrmx::{input::Input, json, ndjson, output::Output};
+use jsrmx::{
+    input::Input,
+    output::Output,
+    processor::{json, ndjson},
+};
 
 #[derive(Parser)]
 #[command(name = "jsrmx")]
