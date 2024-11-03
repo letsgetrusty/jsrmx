@@ -77,7 +77,7 @@ pub fn unbundle(
     };
 
     let mut buf = String::new();
-    while let Ok(_) = input.0.read_line(&mut buf) {
+    while let Ok(_) = input.read_line(&mut buf) {
         match serde_json::from_str::<Value>(&buf) {
             Ok(json) => {
                 let entry = vec![(name_entry(i, &json), json)];

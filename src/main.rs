@@ -103,7 +103,7 @@ fn main() {
             pretty,
             sort,
         } => {
-            let entries = input.0.get_entries(sort);
+            let entries = input.get_entries(sort);
             let merged_object = json::merge(entries, filter);
             if pretty && !compact {
                 output.set_pretty();
@@ -122,10 +122,7 @@ fn main() {
             if pretty && !compact {
                 output.set_pretty();
             };
-            let object = input
-                .0
-                .get_object()
-                .expect("Error reading input: {input:?}");
+            let object = input.get_object().expect("Error reading input: {input:?}");
             let entries = json::split(object, filter);
             output.write_entries(entries).unwrap_or_else(|e| {
                 log::error!("Error splitting: {e}");

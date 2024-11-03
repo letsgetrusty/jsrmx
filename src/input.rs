@@ -5,6 +5,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{stdin, BufRead, BufReader, Read, Stdin},
+    ops::Deref,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -18,14 +19,16 @@ pub trait JsonReader: Send + Sync {
     fn read_line(&self, buf: &mut String) -> Result<(), String>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct InputDirectory(PathBuf);
 
+#[derive(Clone)]
 pub struct InputFile {
     path: PathBuf,
     reader: Arc<Mutex<BufReader<File>>>,
 }
 
+#[derive(Clone)]
 struct InputStdin {
     reader: Arc<Mutex<BufReader<Stdin>>>,
 }
@@ -90,7 +93,7 @@ impl JsonReader for InputStdin {
 }
 
 #[derive(Clone)]
-pub struct JsonSourceInput(pub Arc<dyn JsonSource>);
+pub struct JsonSourceInput(Arc<dyn JsonSource>);
 
 impl std::str::FromStr for JsonSourceInput {
     type Err = String;
@@ -112,8 +115,16 @@ impl std::str::FromStr for JsonSourceInput {
     }
 }
 
+impl Deref for JsonSourceInput {
+    type Target = Arc<dyn JsonSource>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Clone)]
-pub struct JsonReaderInput(pub Arc<dyn JsonReader>);
+pub struct JsonReaderInput(Arc<dyn JsonReader>);
 
 impl std::str::FromStr for JsonReaderInput {
     type Err = String;
@@ -136,6 +147,14 @@ impl std::str::FromStr for JsonReaderInput {
                 }
             }
         }
+    }
+}
+
+impl Deref for JsonReaderInput {
+    type Target = Arc<dyn JsonReader>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
