@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use jsrmx::{
-    input::Input,
+    input::{InputDirectory, JsonReaderInput, JsonSourceInput},
     output::Output,
     processor::{json, ndjson},
 };
@@ -21,7 +21,7 @@ enum Commands {
         #[arg(short, long, conflicts_with = "pretty", default_value_t = false)]
         compact: bool,
         /// Target input directory
-        input: Input,
+        input: JsonSourceInput,
         /// Output filename or `-` for stdout
         #[arg(default_value = "-")]
         output: Output,
@@ -42,7 +42,7 @@ enum Commands {
         compact: bool,
         /// Input filename or `-` for stdin
         #[arg(default_value = "-")]
-        input: Input,
+        input: JsonReaderInput,
         /// Target output directory or `-` for stdout
         #[arg(default_value = "-")]
         output: Output,
@@ -56,7 +56,7 @@ enum Commands {
     /// Bundles multiple <dir>/*.json files into one ndjson file
     Bundle {
         /// Target input directory
-        dir: Input,
+        dir: InputDirectory,
         /// Output filename or `-` for stdout
         #[arg(default_value = "-")]
         output: Output,
@@ -68,7 +68,7 @@ enum Commands {
         compact: bool,
         /// Input filename or `-` for stdin
         #[arg(default_value = "-")]
-        input: Input,
+        input: JsonReaderInput,
         /// Target output directory or `-` for stdout
         #[arg(default_value = "-")]
         output: Output,
@@ -103,7 +103,7 @@ fn main() {
             pretty,
             sort,
         } => {
-            let entries = input.get_entries(sort);
+            let entries = input.0.get_entries(sort);
             let merged_object = json::merge(entries, filter);
             if pretty && !compact {
                 output.set_pretty();
@@ -122,7 +122,10 @@ fn main() {
             if pretty && !compact {
                 output.set_pretty();
             };
-            let object = input.get_object().expect("Error reading input: {input:?}");
+            let object = input
+                .0
+                .get_object()
+                .expect("Error reading input: {input:?}");
             let entries = json::split(object, filter);
             output.write_entries(entries).unwrap_or_else(|e| {
                 log::error!("Error splitting: {e}");
