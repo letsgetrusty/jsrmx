@@ -1,4 +1,4 @@
-mod file;
+pub mod file;
 
 use serde_json::Value;
 use std::{

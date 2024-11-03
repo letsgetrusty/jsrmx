@@ -15,6 +15,9 @@ use std::{collections::HashMap, fs::File, io::BufReader, path::PathBuf};
 /// # Example
 ///
 /// ```
+/// use std::path::PathBuf;
+/// use jsrmx::input::file::read_object;
+///
 /// let path = PathBuf::from("data.json");
 /// match read_object(&path) {
 ///     Ok(json) => println!("Successfully read JSON: {:?}", json),
@@ -44,6 +47,9 @@ pub fn read_object(input: &PathBuf) -> std::io::Result<Value> {
 /// # Example
 ///
 /// ```
+/// use std::path::PathBuf;
+/// use jsrmx::input::file::read_hashmap;
+///
 /// let path = PathBuf::from("data.json");
 /// match read_hashmap(&path) {
 ///     Ok(hashmap) => println!("Successfully read hashmap: {:?}", hashmap),
@@ -75,8 +81,11 @@ pub fn read_hashmap(input: &PathBuf) -> std::io::Result<HashMap<String, Value>> 
 /// # Example
 ///
 /// ```
-/// let input = Input::Directory("path/to/directory".into());
-/// match read_entries_from_directory(&input, None, true) {
+/// use std::path::PathBuf;
+/// use jsrmx::input::file::read_entries_from_directory;
+///
+/// let path = PathBuf::from("path/to/directory");
+/// match read_entries_from_directory(&path, true) {
 ///     Ok(entries) => println!("Successfully read entries: {:?}", entries),
 ///     Err(e) => eprintln!("Error reading entries: {}", e),
 /// }
