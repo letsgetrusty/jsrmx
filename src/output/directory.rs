@@ -22,6 +22,7 @@ impl DirectoryOutput {
     fn write_file(&self, filename: &str, content: Value) -> std::io::Result<()> {
         let mut path = self.path.clone();
         path.push(filename);
+        log::info!("Writing file {}", path.display());
         let file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -57,7 +58,7 @@ impl Writeable for DirectoryOutput {
 
     fn write_entries(&self, mut entries: Vec<(String, Value)>) -> std::io::Result<()> {
         if self.path != PathBuf::from(".") {
-            log::info!("Creating directory {}", self.path.display());
+            //log::info!("Creating directory {}", self.path.display());
             create_dir_all(&self.path)?;
         }
 
