@@ -60,6 +60,9 @@ enum Commands {
         /// Output filename or `-` for stdout
         #[arg(default_value = "-")]
         output: Output,
+        /// String-escaped nested JSON fields to unescape
+        #[arg(short, long, value_delimiter = ',')]
+        escape: Option<Vec<String>>,
     },
     /// Unbundle single [input] file into multiple json objects
     Unbundle {
@@ -78,6 +81,9 @@ enum Commands {
         /// Pretty-print output objects
         #[arg(short, long, default_value_t = true)]
         pretty: bool,
+        /// String-escaped nested JSON fields to unescape
+        #[arg(short, long, value_delimiter = ',')]
+        unescape: Option<Vec<String>>,
     },
 }
 
@@ -128,20 +134,31 @@ fn main() {
                 log::error!("Error splitting: {e}");
             });
         }
-        Commands::Bundle { dir, output } => ndjson::bundle(&dir, &output).unwrap_or_else(|e| {
+        Commands::Bundle {
+            dir,
+            escape,
+            output,
+        } => ndjson::bundle(&dir, &output, escape.unwrap_or_default()).unwrap_or_else(|e| {
             log::error!("Error bundling: {e}");
         }),
         Commands::Unbundle {
             compact,
             input,
-            mut output,
             name,
+            mut output,
             pretty,
+            unescape,
         } => {
             if pretty && !compact {
                 output.set_pretty();
             }
-            ndjson::unbundle(&input, &output, name.as_deref()).unwrap_or_else(|e| {
+            ndjson::unbundle(
+                &input,
+                &output,
+                name.as_deref(),
+                unescape.unwrap_or_default(),
+            )
+            .unwrap_or_else(|e| {
                 log::error!("Error unbundling: {e}");
             })
         }

@@ -234,6 +234,10 @@ jsrmx bundle <dir> [output]
 - `<dir>` - Required target input directory
 - `[output]` - Optional output filename or `-` for stdout (default `-`)
 
+#### Options
+
+- `-e`, `--escape` -  List of field path to convert from nested JSON to an escaped string
+
 #### Examples
 
 We can convert a directory of `.json` files into a single `.ndjson` (newline-delimited JSON) file:
@@ -296,6 +300,7 @@ jsrmx unbundle [options] [intput] [output]
 - `-n`, `--name` - A JSON path to use for filenames
 - `-p`, `--pretty` - Pretty-print output objects (default)
 - `-c`, `--compact` - Compact single-line output objects
+- `-u`, `--unescape` - List of field paths to convert from escaped string to nested JSON
 
 #### Example
 
