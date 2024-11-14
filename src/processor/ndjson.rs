@@ -84,20 +84,35 @@ fn read_directory_to_output(
 pub fn unbundle(
     input: &Input,
     output: &Output,
-    name: Option<&str>,
+    name: Option<Vec<String>>,
+    type_field: Option<String>,
     unescape_fields: Vec<String>,
 ) -> std::io::Result<()> {
     let mut i: usize = 0;
+    let name_list = match name {
+        Some(list) => list
+            .iter()
+            .map(|name| dots_to_slashes(&name))
+            .collect::<Vec<String>>(),
+        None => vec![],
+    };
+    let type_field = type_field.map(|field| dots_to_slashes(&field));
 
     let name_entry = |i: usize, json: &Value| {
         let default_name = format!("object-{i:06}");
-        match name {
-            Some(name) => json
-                .pointer(&dots_to_slashes(&name))
-                .and_then(|value| value.as_str())
-                .unwrap_or(&default_name)
-                .to_string(),
-            None => default_name,
+
+        let name = name_list
+            .iter()
+            .find_map(|name| json.pointer(name))
+            .map_or(default_name, |value| {
+                value.as_str().unwrap_or_default().to_string()
+            });
+
+        match &type_field {
+            Some(field) => json.pointer(&field).map_or(name.clone(), |value| {
+                format!("{name}.{}", value.as_str().unwrap_or_default().to_string())
+            }),
+            None => name,
         }
     };
 

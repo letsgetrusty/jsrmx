@@ -60,7 +60,7 @@ enum Commands {
         /// Output filename or `-` for stdout
         #[arg(default_value = "-")]
         output: Output,
-        /// String-escaped nested JSON fields to unescape
+        /// String-escaped nested JSON fields to escape
         #[arg(short, long, value_delimiter = ',')]
         escape: Option<Vec<String>>,
     },
@@ -75,9 +75,12 @@ enum Commands {
         /// Target output directory or `-` for stdout
         #[arg(default_value = "-")]
         output: Output,
-        /// Output filename prefix
+        /// List of field names to read for filename, uses first non-null value
+        #[arg(short, long, value_delimiter = ',')]
+        name: Option<Vec<String>>,
+        /// Field name to append before the file extension
         #[arg(short, long)]
-        name: Option<String>,
+        r#type: Option<String>,
         /// Pretty-print output objects
         #[arg(short, long, default_value_t = true)]
         pretty: bool,
@@ -147,20 +150,16 @@ fn main() {
             name,
             mut output,
             pretty,
+            r#type,
             unescape,
         } => {
             if pretty && !compact {
                 output.set_pretty();
             }
-            ndjson::unbundle(
-                &input,
-                &output,
-                name.as_deref(),
-                unescape.unwrap_or_default(),
-            )
-            .unwrap_or_else(|e| {
-                log::error!("Error unbundling: {e}");
-            })
+            ndjson::unbundle(&input, &output, name, r#type, unescape.unwrap_or_default())
+                .unwrap_or_else(|e| {
+                    log::error!("Error unbundling: {e}");
+                })
         }
     }
 }
