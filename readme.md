@@ -297,9 +297,10 @@ jsrmx unbundle [options] [intput] [output]
 
 #### Options
 
-- `-n`, `--name` - A JSON path to use for filenames
-- `-p`, `--pretty` - Pretty-print output objects (default)
 - `-c`, `--compact` - Compact single-line output objects
+- `-n`, `--name` - A list of JSON paths to use for filenames (uses first non-null)
+- `-p`, `--pretty` - Pretty-print output objects (default)
+- `-t`, `--type` - A JSON path to use for filename suffix (before extension)
 - `-u`, `--unescape` - List of field paths to convert from escaped string to nested JSON
 
 #### Example
