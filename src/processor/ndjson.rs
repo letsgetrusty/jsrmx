@@ -1,5 +1,8 @@
 use super::json_field::JsonField;
-use crate::{input::Input, output::Output};
+use crate::{
+    input::{InputDirectory, JsonReaderInput},
+    output::Output,
+};
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -10,28 +13,18 @@ use std::path::PathBuf;
 /// * `dir` - A reference to a `PathBuf` representing the directory containing JSON files.
 /// * `output` - A reference to an `Output` where the bundled JSON will be written.
 
-pub fn bundle(input: &Input, output: &Output, escape_fields: Vec<String>) -> std::io::Result<()> {
+pub fn bundle(
+    input: &InputDirectory,
+    output: &Output,
+    escape_fields: Vec<String>,
+) -> std::io::Result<()> {
     if let Output::Directory { .. } = output {
         return Err(std::io::Error::new(
             std::io::ErrorKind::Other,
             "Cannot bundle to a directory",
         ));
     }
-    match input {
-        Input::Directory(dir) => read_directory_to_output(dir, output, escape_fields),
-        Input::File { .. } => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Cannot bundle from a single file, multiple objects in a file is invalid JSON!",
-            ))
-        }
-        Input::Stdin { .. } => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Why bundle from stdin? Just redirect output to a file!",
-            ))
-        }
-    }
+    read_directory_to_output(input.as_ref(), output, escape_fields)
 }
 
 /// Reads all JSON files in the specified directory and appends their contents to the output.
@@ -82,7 +75,7 @@ fn read_directory_to_output(
 /// * `name` - An optional name for the JSON objects, used as a key to extract values.
 
 pub fn unbundle(
-    input: &Input,
+    input: &JsonReaderInput,
     output: &Output,
     name: Option<Vec<String>>,
     type_field: Option<String>,

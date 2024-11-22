@@ -1,143 +1,167 @@
-mod file;
+pub mod file;
 
 use serde_json::Value;
 use std::{
     collections::HashMap,
     fs::File,
     io::{stdin, BufRead, BufReader, Read, Stdin},
-    path::{Path, PathBuf},
+    ops::Deref,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
-#[derive(Clone, Debug)]
-pub enum Input {
-    Directory(PathBuf),
-    File {
-        path: PathBuf,
-        reader: Arc<Mutex<BufReader<File>>>,
-    },
-    Stdin {
-        reader: Arc<Mutex<BufReader<Stdin>>>,
-    },
+pub trait JsonSource: Send + Sync {
+    fn get_entries(&self, sort: bool) -> Vec<(String, Value)>;
 }
 
-impl Input {
-    pub fn get_entries(&self, sort: bool) -> Vec<(String, Value)> {
-        match self {
-            Input::Directory(dir) => match file::read_entries_from_directory(dir, sort) {
-                Ok(entries) => entries,
-                Err(e) => {
-                    panic!("Error reading entries from directory: {}", e);
-                }
-            },
-            Input::File { path, .. } => {
-                panic!("Cannot read entries from file: {path:?}");
-            }
-            Input::Stdin { .. } => {
-                let mut entries = Vec::new();
-                let mut buf = String::new();
-                while let Ok(_) = self.read_line(&mut buf) {
-                    if buf.is_empty() {
-                        break;
-                    }
-                    match serde_json::from_str(&buf) {
-                        Ok(entry) => entries.push(entry),
-                        Err(e) => {
-                            log::error!("Error parsing JSON: {}", e);
-                        }
-                    }
-                    buf.clear();
-                }
-                entries
-            }
-        }
-    }
+pub trait JsonReader: Send + Sync {
+    fn get_object(&self) -> std::io::Result<HashMap<String, Value>>;
+    fn read_line(&self, buf: &mut String) -> Result<(), String>;
+}
 
-    pub fn get_object(&self) -> std::io::Result<HashMap<String, Value>> {
-        match self {
-            Input::Directory(input) => Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Cannot split a directory: {input:?}"),
-            )),
-            Input::File { path, .. } => Ok(file::read_hashmap(path)?),
-            Input::Stdin { .. } => {
-                let mut buffer = String::new();
-                stdin().read_to_string(&mut buffer)?;
-                Ok(serde_json::from_str(&buffer)?)
-            }
-        }
-    }
+#[derive(Clone)]
+pub struct InputDirectory(PathBuf);
 
-    pub fn read_line(&self, buf: &mut String) -> Result<(), String> {
-        match self {
-            Input::Directory(path) => Err(format!(
-                "Cannot read_line from directory {}",
-                path.display()
-            )),
-            Input::File { reader, .. } => {
-                let mut reader = reader.lock().map_err(|e| e.to_string())?;
-                reader.read_line(buf).map_err(|e| e.to_string())?;
-                Ok(())
-            }
-            Input::Stdin { reader } => {
-                let mut reader = reader.lock().map_err(|e| e.to_string())?;
-                reader.read_line(buf).map_err(|e| e.to_string())?;
-                Ok(())
-            }
-        }
+#[derive(Clone)]
+pub struct InputFile {
+    path: PathBuf,
+    reader: Arc<Mutex<BufReader<File>>>,
+}
+
+#[derive(Clone)]
+struct InputStdin {
+    reader: Arc<Mutex<BufReader<Stdin>>>,
+}
+
+impl JsonSource for InputDirectory {
+    fn get_entries(&self, sort: bool) -> Vec<(String, Value)> {
+        file::read_entries_from_directory(&self.0, sort)
+            .expect("Error reading entries from directory")
     }
 }
 
-impl AsRef<Path> for Input {
-    fn as_ref(&self) -> &Path {
-        match self {
-            Input::Directory(path) => path.as_path(),
-            Input::File { path, .. } => path.as_path(),
-            Input::Stdin { .. } => Path::new("-"),
-        }
-    }
-}
-
-impl AsRef<PathBuf> for Input {
+impl AsRef<PathBuf> for InputDirectory {
     fn as_ref(&self) -> &PathBuf {
-        match self {
-            Input::Directory(path) => path,
-            Input::File { path, .. } => path,
-            Input::Stdin { .. } => panic!("Cannot convert stdin to PathBuf"),
-        }
+        &self.0
     }
 }
 
-impl std::fmt::Display for Input {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Input::Directory(path) => write!(f, "{}", path.display()),
-            Input::File { path, .. } => write!(f, "{}", path.display()),
-            Input::Stdin { .. } => write!(f, "-"),
+impl JsonSource for InputStdin {
+    fn get_entries(&self, _sort: bool) -> Vec<(String, Value)> {
+        let mut entries = Vec::new();
+        let mut buf = String::new();
+        while self.read_line(&mut buf).is_ok() {
+            if buf.is_empty() {
+                break;
+            }
+            match serde_json::from_str(&buf) {
+                Ok(entry) => entries.push(entry),
+                Err(e) => {
+                    log::error!("Error parsing JSON: {}", e);
+                }
+            }
+            buf.clear();
         }
+        entries
     }
 }
 
-impl std::str::FromStr for Input {
+impl JsonReader for InputFile {
+    fn get_object(&self) -> std::io::Result<HashMap<String, Value>> {
+        file::read_hashmap(&self.path)
+    }
+
+    fn read_line(&self, buf: &mut String) -> Result<(), String> {
+        let mut reader = self.reader.lock().map_err(|e| e.to_string())?;
+        reader.read_line(buf).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}
+
+impl JsonReader for InputStdin {
+    fn get_object(&self) -> std::io::Result<HashMap<String, Value>> {
+        let mut buffer = String::new();
+        stdin().read_to_string(&mut buffer)?;
+        Ok(serde_json::from_str(&buffer)?)
+    }
+
+    fn read_line(&self, buf: &mut String) -> Result<(), String> {
+        let mut reader = self.reader.lock().map_err(|e| e.to_string())?;
+        reader.read_line(buf).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct JsonSourceInput(Arc<dyn JsonSource>);
+
+impl std::str::FromStr for JsonSourceInput {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
-            "-" => Ok(Input::Stdin {
+            "-" => Ok(JsonSourceInput(Arc::new(InputStdin {
                 reader: Arc::new(Mutex::new(BufReader::new(stdin()))),
-            }),
+            }))),
             input => {
                 let path = PathBuf::from(input);
                 if path.is_dir() {
-                    Ok(Input::Directory(path))
+                    Ok(JsonSourceInput(Arc::new(InputDirectory(path))))
                 } else {
-                    let file = File::open(&path).map_err(|e| e.to_string())?;
-                    Ok(Input::File {
-                        reader: Arc::new(Mutex::new(BufReader::new(file))),
-                        path,
-                    })
+                    Err(format!("Cannot read entries from file: {input}"))
                 }
             }
         }
+    }
+}
+
+impl Deref for JsonSourceInput {
+    type Target = Arc<dyn JsonSource>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Clone)]
+pub struct JsonReaderInput(Arc<dyn JsonReader>);
+
+impl std::str::FromStr for JsonReaderInput {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input {
+            "-" => Ok(JsonReaderInput(Arc::new(InputStdin {
+                reader: Arc::new(Mutex::new(BufReader::new(stdin()))),
+            }))),
+            input => {
+                let path = PathBuf::from(input);
+                if path.is_dir() {
+                    Err(format!("Cannot read object from directory: {input}"))
+                } else {
+                    let file = File::open(&path).map_err(|e| e.to_string())?;
+                    Ok(JsonReaderInput(Arc::new(InputFile {
+                        reader: Arc::new(Mutex::new(BufReader::new(file))),
+                        path,
+                    })))
+                }
+            }
+        }
+    }
+}
+
+impl Deref for JsonReaderInput {
+    type Target = Arc<dyn JsonReader>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::str::FromStr for InputDirectory {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        Ok(InputDirectory(PathBuf::from(input)))
     }
 }
