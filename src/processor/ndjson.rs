@@ -1,7 +1,7 @@
 use super::json_field::JsonField;
 use crate::{
     input::{InputDirectory, JsonReaderInput},
-    output::Output,
+    output::{AllOutputs, FileAndStdOut},
 };
 use serde_json::Value;
 use std::path::PathBuf;
@@ -13,17 +13,11 @@ use std::path::PathBuf;
 /// * `dir` - A reference to a `PathBuf` representing the directory containing JSON files.
 /// * `output` - A reference to an `Output` where the bundled JSON will be written.
 
-pub fn bundle(
+pub fn bundle<W: FileAndStdOut>(
     input: &InputDirectory,
-    output: &Output,
+    output: &W,
     escape_fields: Vec<String>,
 ) -> std::io::Result<()> {
-    if let Output::Directory { .. } = output {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Cannot bundle to a directory",
-        ));
-    }
     read_directory_to_output(input.as_ref(), output, escape_fields)
 }
 
@@ -38,9 +32,9 @@ pub fn bundle(
 ///
 /// Returns an `std::io::Error` if any file cannot be processed or if reading fails.
 
-fn read_directory_to_output(
+fn read_directory_to_output<W: FileAndStdOut>(
     dir: &PathBuf,
-    output: &Output,
+    output: &W,
     json_fields: Vec<String>,
 ) -> std::io::Result<()> {
     let files = std::fs::read_dir(dir)?;
@@ -74,9 +68,9 @@ fn read_directory_to_output(
 /// * `output` - A reference to an `Output` where the JSON files will be written.
 /// * `name` - An optional name for the JSON objects, used as a key to extract values.
 
-pub fn unbundle(
+pub fn unbundle<W: AllOutputs>(
     input: &JsonReaderInput,
-    output: &Output,
+    output: &W,
     name: Option<Vec<String>>,
     type_field: Option<String>,
     unescape_fields: Vec<String>,

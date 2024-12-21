@@ -1,4 +1,4 @@
-use super::Writeable;
+use super::{AllOutputs, FileAndStdOut};
 use serde::Serialize;
 use serde_json::Value;
 use std::{
@@ -15,7 +15,7 @@ pub struct FileOutput {
     pub path: PathBuf,
 }
 
-impl Writeable for FileOutput {
+impl FileAndStdOut for FileOutput {
     fn append<T: Serialize>(&self, content: T) -> std::io::Result<()> {
         let mut guard = self.writer.lock().expect("Failed to get writer lock");
         match self.pretty {
@@ -24,10 +24,6 @@ impl Writeable for FileOutput {
         }
         writeln!(&mut *guard)?;
         Ok(())
-    }
-
-    fn set_pretty(&mut self, pretty: bool) {
-        self.pretty = pretty;
     }
 
     fn write<T: Serialize>(&self, content: T) -> std::io::Result<()> {
@@ -42,6 +38,12 @@ impl Writeable for FileOutput {
             serde_json::to_string(&content)?
         };
         Ok(file.write_all(body.as_bytes())?)
+    }
+}
+
+impl AllOutputs for FileOutput {
+    fn set_pretty(&mut self, pretty: bool) {
+        self.pretty = pretty;
     }
 
     fn write_entries(&self, entries: Vec<(String, Value)>) -> std::io::Result<()> {

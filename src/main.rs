@@ -1,7 +1,10 @@
 use clap::{Parser, Subcommand};
 use jsrmx::{
     input::{InputDirectory, JsonReaderInput, JsonSourceInput},
-    output::Output,
+    output::{
+        directory::DirectoryOutput, file::FileOutput, stream::StreamOutput, AllOutputs,
+        FileAndStdOut, Output,
+    },
     processor::{json, ndjson},
 };
 
@@ -90,6 +93,60 @@ enum Commands {
     },
 }
 
+fn merge<W: FileAndStdOut>(
+    compact: bool,
+    input: JsonSourceInput,
+    mut output: W,
+    filter: Option<String>,
+    pretty: bool,
+    sort: bool,
+) {
+    let entries = input.get_entries(sort);
+    let merged_object = json::merge(entries, filter);
+    if pretty && !compact {
+        output.set_pretty(true);
+    }
+    output
+        .append(merged_object)
+        .unwrap_or_else(|e| log::error!("Error writing to output: {e}"));
+}
+
+fn split<W: AllOutputs>(
+    compact: bool,
+    input: JsonReaderInput,
+    mut output: W,
+    filter: Option<String>,
+    pretty: bool,
+) {
+    if pretty && !compact {
+        output.set_pretty(true);
+    };
+    let object = input.get_object().expect("Error reading input: {input:?}");
+    let entries = json::split(object, filter);
+    output.write_entries(entries).unwrap_or_else(|e| {
+        log::error!("Error splitting: {e}");
+    });
+}
+
+fn unbundle<W: AllOutputs>(
+    compact: bool,
+    input: JsonReaderInput,
+    mut output: W,
+    name: Option<Vec<String>>,
+    pretty: bool,
+    r#type: Option<String>,
+    unescape: Option<Vec<String>>,
+) {
+    if pretty && !compact {
+        output.set_pretty(true);
+    }
+    ndjson::unbundle(&input, &output, name, r#type, unescape.unwrap_or_default()).unwrap_or_else(
+        |e| {
+            log::error!("Error unbundling: {e}");
+        },
+    )
+}
+
 fn main() {
     let cli = Cli::parse();
     let env = env_logger::Env::default().filter_or("LOG_LEVEL", "warn");
@@ -107,59 +164,122 @@ fn main() {
         Commands::Merge {
             compact,
             input,
-            mut output,
+            output,
             filter,
             pretty,
             sort,
-        } => {
-            let entries = input.get_entries(sort);
-            let merged_object = json::merge(entries, filter);
-            if pretty && !compact {
-                output.set_pretty();
+        } => match output {
+            Output::Directory(_) => panic!("Cannot merge to a directory"),
+            Output::File(path) => {
+                merge(
+                    compact,
+                    input,
+                    FileOutput::new(path, false),
+                    filter,
+                    pretty,
+                    sort,
+                );
             }
-            output
-                .append(merged_object)
-                .unwrap_or_else(|e| log::error!("Error writing to output: {e}"));
-        }
+            Output::Stdout => {
+                merge(
+                    compact,
+                    input,
+                    StreamOutput::new(false),
+                    filter,
+                    pretty,
+                    sort,
+                );
+            }
+        },
         Commands::Split {
             compact,
             input,
-            mut output,
+            output,
             filter,
             pretty,
-        } => {
-            if pretty && !compact {
-                output.set_pretty();
-            };
-            let object = input.get_object().expect("Error reading input: {input:?}");
-            let entries = json::split(object, filter);
-            output.write_entries(entries).unwrap_or_else(|e| {
-                log::error!("Error splitting: {e}");
-            });
-        }
+        } => match output {
+            Output::Directory(path) => {
+                split(
+                    compact,
+                    input,
+                    DirectoryOutput::new(path, false),
+                    filter,
+                    pretty,
+                );
+            }
+            Output::File(path) => {
+                split(compact, input, FileOutput::new(path, false), filter, pretty);
+            }
+            Output::Stdout => {
+                split(compact, input, StreamOutput::new(false), filter, pretty);
+            }
+        },
         Commands::Bundle {
             dir,
             escape,
             output,
-        } => ndjson::bundle(&dir, &output, escape.unwrap_or_default()).unwrap_or_else(|e| {
-            log::error!("Error bundling: {e}");
-        }),
+        } => {
+            let x = match output {
+                Output::Directory(_) => Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Cannot bundle to a directory",
+                )),
+                Output::File(path) => ndjson::bundle(
+                    &dir,
+                    &FileOutput::new(path, false),
+                    escape.unwrap_or_default(),
+                ),
+                Output::Stdout => {
+                    ndjson::bundle(&dir, &StreamOutput::new(false), escape.unwrap_or_default())
+                }
+            };
+
+            x.unwrap_or_else(|e| {
+                log::error!("Error bundling: {e}");
+            });
+        }
         Commands::Unbundle {
             compact,
             input,
             name,
-            mut output,
+            output,
             pretty,
             r#type,
             unescape,
-        } => {
-            if pretty && !compact {
-                output.set_pretty();
+        } => match output {
+            Output::Directory(path) => {
+                unbundle(
+                    compact,
+                    input,
+                    DirectoryOutput::new(path, false),
+                    name,
+                    pretty,
+                    r#type,
+                    unescape,
+                );
             }
-            ndjson::unbundle(&input, &output, name, r#type, unescape.unwrap_or_default())
-                .unwrap_or_else(|e| {
-                    log::error!("Error unbundling: {e}");
-                })
-        }
+            Output::File(path) => {
+                unbundle(
+                    compact,
+                    input,
+                    FileOutput::new(path, false),
+                    name,
+                    pretty,
+                    r#type,
+                    unescape,
+                );
+            }
+            Output::Stdout => {
+                unbundle(
+                    compact,
+                    input,
+                    StreamOutput::new(false),
+                    name,
+                    pretty,
+                    r#type,
+                    unescape,
+                );
+            }
+        },
     }
 }
