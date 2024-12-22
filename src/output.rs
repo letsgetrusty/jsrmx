@@ -2,12 +2,11 @@ pub mod directory;
 pub mod file;
 pub mod stream;
 
-use serde::Serialize;
 use serde_json::Value;
 use std::path::PathBuf;
 
 pub trait JsonAppender: JsonWriter {
-    fn append<T: Serialize>(&self, content: T) -> std::io::Result<()>;
+    fn append(&self, content: Value) -> std::io::Result<()>;
 }
 
 pub trait JsonWriter {

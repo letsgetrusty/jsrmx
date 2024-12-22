@@ -1,5 +1,4 @@
 use super::{JsonAppender, JsonWriter};
-use serde::Serialize;
 use serde_json::Value;
 use std::io::stdout;
 
@@ -15,7 +14,7 @@ impl StreamOutput {
 }
 
 impl JsonAppender for StreamOutput {
-    fn append<T: Serialize>(&self, content: T) -> std::io::Result<()> {
+    fn append(&self, content: Value) -> std::io::Result<()> {
         match self.pretty {
             true => serde_json::to_writer_pretty(stdout(), &content)?,
             false => serde_json::to_writer(stdout(), &content)?,
