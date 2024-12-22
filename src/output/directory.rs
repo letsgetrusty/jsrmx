@@ -1,4 +1,4 @@
-use super::AllOutputs;
+use super::JsonWriter;
 use rayon::prelude::*;
 use serde_json::Value;
 use std::{
@@ -36,7 +36,7 @@ impl DirectoryOutput {
     }
 }
 
-impl AllOutputs for DirectoryOutput {
+impl JsonWriter for DirectoryOutput {
     fn set_pretty(&mut self, pretty: bool) {
         self.pretty = pretty;
     }

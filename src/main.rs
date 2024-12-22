@@ -2,8 +2,8 @@ use clap::{Parser, Subcommand};
 use jsrmx::{
     input::{InputDirectory, JsonReaderInput, JsonSourceInput},
     output::{
-        directory::DirectoryOutput, file::FileOutput, stream::StreamOutput, AllOutputs,
-        FileAndStdOut, Output,
+        directory::DirectoryOutput, file::FileOutput, stream::StreamOutput, JsonAppender,
+        JsonWriter, Output,
     },
     processor::{json, ndjson},
 };
@@ -93,7 +93,7 @@ enum Commands {
     },
 }
 
-fn merge<W: FileAndStdOut>(
+fn merge<W: JsonAppender>(
     compact: bool,
     input: JsonSourceInput,
     mut output: W,
@@ -111,7 +111,7 @@ fn merge<W: FileAndStdOut>(
         .unwrap_or_else(|e| log::error!("Error writing to output: {e}"));
 }
 
-fn split<W: AllOutputs>(
+fn split<W: JsonWriter>(
     compact: bool,
     input: JsonReaderInput,
     mut output: W,
@@ -128,7 +128,7 @@ fn split<W: AllOutputs>(
     });
 }
 
-fn unbundle<W: AllOutputs>(
+fn unbundle<W: JsonWriter>(
     compact: bool,
     input: JsonReaderInput,
     mut output: W,

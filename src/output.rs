@@ -6,12 +6,11 @@ use serde::Serialize;
 use serde_json::Value;
 use std::path::PathBuf;
 
-pub trait FileAndStdOut: AllOutputs {
+pub trait JsonAppender: JsonWriter {
     fn append<T: Serialize>(&self, content: T) -> std::io::Result<()>;
-    fn write<T: Serialize>(&self, content: T) -> std::io::Result<()>;
 }
 
-pub trait AllOutputs {
+pub trait JsonWriter {
     fn set_pretty(&mut self, pretty: bool);
     fn write_entries(&self, entries: Vec<(String, Value)>) -> std::io::Result<()>;
 }

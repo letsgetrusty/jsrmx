@@ -1,7 +1,7 @@
 use super::json_field::JsonField;
 use crate::{
     input::{InputDirectory, JsonReaderInput},
-    output::{AllOutputs, FileAndStdOut},
+    output::{JsonAppender, JsonWriter},
 };
 use serde_json::Value;
 use std::path::PathBuf;
@@ -13,7 +13,7 @@ use std::path::PathBuf;
 /// * `dir` - A reference to a `PathBuf` representing the directory containing JSON files.
 /// * `output` - A reference to an `Output` where the bundled JSON will be written.
 
-pub fn bundle<W: FileAndStdOut>(
+pub fn bundle<W: JsonAppender>(
     input: &InputDirectory,
     output: &W,
     escape_fields: Vec<String>,
@@ -32,7 +32,7 @@ pub fn bundle<W: FileAndStdOut>(
 ///
 /// Returns an `std::io::Error` if any file cannot be processed or if reading fails.
 
-fn read_directory_to_output<W: FileAndStdOut>(
+fn read_directory_to_output<W: JsonAppender>(
     dir: &PathBuf,
     output: &W,
     json_fields: Vec<String>,
@@ -68,7 +68,7 @@ fn read_directory_to_output<W: FileAndStdOut>(
 /// * `output` - A reference to an `Output` where the JSON files will be written.
 /// * `name` - An optional name for the JSON objects, used as a key to extract values.
 
-pub fn unbundle<W: AllOutputs>(
+pub fn unbundle<W: JsonWriter>(
     input: &JsonReaderInput,
     output: &W,
     name: Option<Vec<String>>,
