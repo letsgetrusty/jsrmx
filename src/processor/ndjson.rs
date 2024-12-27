@@ -114,12 +114,9 @@ pub fn unbundle(
         match serde_json::from_str::<Value>(&buf) {
             Ok(mut json) => {
                 unescape_fields.iter().for_each(|field| {
-                    match json.pointer_mut(&dots_to_slashes(field)) {
-                        Some(value) => {
-                            log::debug!("Unescaping field {}", field);
-                            *value = JsonField::from(value.clone()).unescape();
-                        }
-                        None => (),
+                    if let Some(value) = json.pointer_mut(&dots_to_slashes(field)) {
+                        log::debug!("Unescaping field {}", field);
+                        *value = JsonField::from(value.clone()).unescape();
                     }
                 });
                 let entry = vec![(name_entry(i, &json), json)];
