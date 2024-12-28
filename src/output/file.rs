@@ -1,5 +1,4 @@
 use super::Writeable;
-use serde::Serialize;
 use serde_json::Value;
 use std::{
     fs::{File, OpenOptions},
@@ -16,7 +15,7 @@ pub struct FileOutput {
 }
 
 impl Writeable for FileOutput {
-    fn append<T: Serialize>(&self, content: T) -> std::io::Result<()> {
+    fn append(&self, content: Value) -> std::io::Result<()> {
         let mut guard = self.writer.lock().expect("Failed to get writer lock");
         match self.pretty {
             true => serde_json::to_writer_pretty(&mut *guard, &content)?,

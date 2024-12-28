@@ -5,12 +5,11 @@ use directory::DirectoryOutput;
 use file::FileOutput;
 use stream::StreamOutput;
 
-use serde::Serialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 trait Writeable {
-    fn append<T: Serialize>(&self, content: T) -> std::io::Result<()>;
+    fn append(&self, content: Value) -> std::io::Result<()>;
     fn set_pretty(&mut self, pretty: bool);
     fn write_entries(&self, entries: Vec<(String, Value)>) -> std::io::Result<()>;
 }
@@ -23,7 +22,7 @@ pub enum Output {
 }
 
 impl Output {
-    pub fn append<T: Serialize>(&self, content: T) -> std::io::Result<()> {
+    pub fn append(&self, content: Value) -> std::io::Result<()> {
         match self {
             Self::Directory(output) => output.append(content),
             Self::File(output) => output.append(content),

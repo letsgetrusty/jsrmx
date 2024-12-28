@@ -1,6 +1,5 @@
 use super::Writeable;
 use rayon::prelude::*;
-use serde::Serialize;
 use serde_json::Value;
 use std::{
     fs::{create_dir_all, OpenOptions},
@@ -38,7 +37,7 @@ impl DirectoryOutput {
 }
 
 impl Writeable for DirectoryOutput {
-    fn append<T: Serialize>(&self, _content: T) -> std::io::Result<()> {
+    fn append(&self, _content: Value) -> std::io::Result<()> {
         Err(std::io::Error::new(
             std::io::ErrorKind::Other,
             "Cannot append to a directory output",
