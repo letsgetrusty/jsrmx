@@ -12,7 +12,6 @@ use std::path::{Path, PathBuf};
 trait Writeable {
     fn append<T: Serialize>(&self, content: T) -> std::io::Result<()>;
     fn set_pretty(&mut self, pretty: bool);
-    fn write<T: Serialize>(&self, content: T) -> std::io::Result<()>;
     fn write_entries(&self, entries: Vec<(String, Value)>) -> std::io::Result<()>;
 }
 
@@ -29,14 +28,6 @@ impl Output {
             Self::Directory(output) => output.append(content),
             Self::File(output) => output.append(content),
             Self::Stdout(output) => output.append(content),
-        }
-    }
-
-    pub fn write<T: Serialize>(&self, content: T) -> std::io::Result<()> {
-        match self {
-            Self::Directory(output) => output.write(content),
-            Self::File(output) => output.write(content),
-            Self::Stdout(output) => output.write(content),
         }
     }
 

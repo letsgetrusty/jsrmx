@@ -49,13 +49,6 @@ impl Writeable for DirectoryOutput {
         self.pretty = pretty;
     }
 
-    fn write<T: Serialize>(&self, _content: T) -> std::io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Cannot write to a directory output",
-        ))
-    }
-
     fn write_entries(&self, mut entries: Vec<(String, Value)>) -> std::io::Result<()> {
         if self.path != PathBuf::from(".") {
             //log::info!("Creating directory {}", self.path.display());

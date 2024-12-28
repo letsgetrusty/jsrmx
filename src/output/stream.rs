@@ -28,14 +28,6 @@ impl Writeable for StreamOutput {
         self.pretty = pretty;
     }
 
-    fn write<T: Serialize>(&self, content: T) -> std::io::Result<()> {
-        match self.pretty {
-            true => serde_json::to_writer_pretty(stdout(), &content)?,
-            false => serde_json::to_writer(stdout(), &content)?,
-        }
-        Ok(())
-    }
-
     fn write_entries(&self, mut entries: Vec<(String, Value)>) -> std::io::Result<()> {
         for (key, value) in entries.drain(..) {
             let entry = serde_json::json!({key: value});

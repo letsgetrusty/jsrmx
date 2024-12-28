@@ -30,20 +30,6 @@ impl Writeable for FileOutput {
         self.pretty = pretty;
     }
 
-    fn write<T: Serialize>(&self, content: T) -> std::io::Result<()> {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&self.path)?;
-        let body = if self.pretty {
-            serde_json::to_string_pretty(&content)?
-        } else {
-            serde_json::to_string(&content)?
-        };
-        Ok(file.write_all(body.as_bytes())?)
-    }
-
     fn write_entries(&self, entries: Vec<(String, Value)>) -> std::io::Result<()> {
         let mut guard = self.writer.lock().expect("Failed to get writer lock");
         for (key, value) in entries {
