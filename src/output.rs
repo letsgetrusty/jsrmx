@@ -106,16 +106,21 @@ pub struct JsonAppendableOutput(pub Arc<RwLock<dyn Appendable>>);
 impl std::str::FromStr for JsonAppendableOutput {
     type Err = Report;
 
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
             "-" => Ok(JsonAppendableOutput(Arc::new(RwLock::new(
                 StreamOutput::new(false),
             )))),
-            input => {
-                let path = PathBuf::from(input);
-                if path.is_dir() {
-                    Err(eyre!("Cannot append to a directory output: {input}"))
+            s => {
+                let path = PathBuf::from(s);
+                if path.is_dir() | path.extension().is_none() {
+                    Err(eyre!("Cannot append to a directory output: {s}"))
+                } else if path.is_file() {
+                    Ok(JsonAppendableOutput(Arc::new(RwLock::new(
+                        FileOutput::new(path, false),
+                    ))))
                 } else {
+                    log::info!("Creating file: {}", &path.display());
                     Ok(JsonAppendableOutput(Arc::new(RwLock::new(
                         FileOutput::new(path, false),
                     ))))
@@ -139,18 +144,23 @@ pub struct JsonWritableOutput(pub Arc<RwLock<dyn Writeable>>);
 impl std::str::FromStr for JsonWritableOutput {
     type Err = Report;
 
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
             "-" => Ok(JsonWritableOutput(Arc::new(RwLock::new(
                 StreamOutput::new(false),
             )))),
-            input => {
-                let path = PathBuf::from(input);
-                if path.is_dir() {
+            s => {
+                let path = PathBuf::from(s);
+                if path.is_dir() | path.extension().is_none() {
                     Ok(JsonWritableOutput(Arc::new(RwLock::new(
                         DirectoryOutput::new(path, false),
                     ))))
+                } else if path.is_file() {
+                    Ok(JsonWritableOutput(Arc::new(RwLock::new(FileOutput::new(
+                        path, false,
+                    )))))
                 } else {
+                    log::info!("Creating file: {}", &path.display());
                     Ok(JsonWritableOutput(Arc::new(RwLock::new(FileOutput::new(
                         path, false,
                     )))))
