@@ -153,7 +153,7 @@ fn main() {
             dir,
             escape,
             output,
-        } => NdjsonBundler::new(dir, output.0)
+        } => NdjsonBundler::new(dir, output)
             .bundle(escape)
             .unwrap_or_else(|e| {
                 log::error!("Error bundling: {e}");
@@ -173,7 +173,7 @@ fn main() {
                     .expect("Error acquiring write lock on output")
                     .set_pretty(true);
             }
-            NdjsonUnbundler::new(input, output.0, unescape)
+            NdjsonUnbundler::new(input, output, unescape)
                 .unbundle(name, r#type)
                 .unwrap_or_else(|e| {
                     log::error!("Error unbundling: {e}");

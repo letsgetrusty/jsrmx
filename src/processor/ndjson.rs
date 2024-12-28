@@ -1,20 +1,18 @@
-use std::sync::{Arc, RwLock};
-
 use super::json_field::JsonField;
 use crate::{
     input::{InputDirectory, JsonReaderInput, JsonSource},
-    output::{Appendable, Writeable},
+    output::{JsonAppendableOutput, JsonWritableOutput},
 };
 use eyre::{eyre, Result};
 use serde_json::Value;
 
 pub struct NdjsonBundler {
     input: InputDirectory,
-    output: Arc<RwLock<dyn Appendable>>,
+    output: JsonAppendableOutput,
 }
 
 impl NdjsonBundler {
-    pub fn new(input: InputDirectory, output: Arc<RwLock<dyn Appendable>>) -> Self {
+    pub fn new(input: InputDirectory, output: JsonAppendableOutput) -> Self {
         Self { input, output }
     }
 
@@ -61,14 +59,14 @@ impl NdjsonBundler {
 
 pub struct NdjsonUnbundler {
     input: JsonReaderInput,
-    output: Arc<RwLock<dyn Writeable>>,
+    output: JsonWritableOutput,
     unescape_fields: Option<Vec<String>>,
 }
 
 impl NdjsonUnbundler {
     pub fn new(
         input: JsonReaderInput,
-        output: Arc<RwLock<dyn Writeable>>,
+        output: JsonWritableOutput,
         unescape_fields: Option<Vec<String>>,
     ) -> Self {
         Self {
