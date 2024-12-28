@@ -115,11 +115,14 @@ fn main() {
             let entries = input.get_entries(sort);
             let merged_object = json::merge(entries, filter);
             if pretty && !compact {
-                output.write().unwrap().set_pretty(true);
+                output
+                    .write()
+                    .expect("Error acquiring write lock on output")
+                    .set_pretty(true);
             }
             output
                 .read()
-                .unwrap()
+                .expect("Error acquiring write lock on output")
                 .append(merged_object)
                 .unwrap_or_else(|e| log::error!("Error writing to output: {e}"));
         }
@@ -131,13 +134,16 @@ fn main() {
             pretty,
         } => {
             if pretty && !compact {
-                output.write().unwrap().set_pretty(true);
+                output
+                    .write()
+                    .expect("Error acquiring write lock on output")
+                    .set_pretty(true);
             };
             let object = input.get_object().expect("Error reading input: {input:?}");
             let entries = json::split(object, filter);
             output
                 .read()
-                .unwrap()
+                .expect("Error acquiring read lock on output")
                 .write_entries(entries)
                 .unwrap_or_else(|e| {
                     log::error!("Error splitting: {e}");
@@ -162,7 +168,10 @@ fn main() {
             unescape,
         } => {
             if pretty && !compact {
-                output.write().unwrap().set_pretty(true);
+                output
+                    .write()
+                    .expect("Error acquiring write lock on output")
+                    .set_pretty(true);
             }
             NdjsonUnbundler::new(input, output.0, unescape)
                 .unbundle(name, r#type)
