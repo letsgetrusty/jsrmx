@@ -1,4 +1,4 @@
-use super::Writeable;
+use super::{Appendable, Writeable};
 use serde_json::Value;
 use std::{
     fs::{File, OpenOptions},
@@ -14,7 +14,7 @@ pub struct FileOutput {
     pub path: PathBuf,
 }
 
-impl Writeable for FileOutput {
+impl Appendable for FileOutput {
     fn append(&self, content: Value) -> std::io::Result<()> {
         let mut guard = self.writer.lock().expect("Failed to get writer lock");
         match self.pretty {
@@ -24,7 +24,9 @@ impl Writeable for FileOutput {
         writeln!(&mut *guard)?;
         Ok(())
     }
+}
 
+impl Writeable for FileOutput {
     fn set_pretty(&mut self, pretty: bool) {
         self.pretty = pretty;
     }

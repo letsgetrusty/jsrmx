@@ -8,8 +8,11 @@ use stream::StreamOutput;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
-trait Writeable {
+trait Appendable {
     fn append(&self, content: Value) -> std::io::Result<()>;
+}
+
+trait Writeable {
     fn set_pretty(&mut self, pretty: bool);
     fn write_entries(&self, entries: Vec<(String, Value)>) -> std::io::Result<()>;
 }
@@ -24,7 +27,10 @@ pub enum Output {
 impl Output {
     pub fn append(&self, content: Value) -> std::io::Result<()> {
         match self {
-            Self::Directory(output) => output.append(content),
+            Self::Directory(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Cannot append to a directory output",
+            )),
             Self::File(output) => output.append(content),
             Self::Stdout(output) => output.append(content),
         }

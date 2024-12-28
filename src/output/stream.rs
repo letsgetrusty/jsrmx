@@ -1,4 +1,4 @@
-use super::Writeable;
+use super::{Appendable, Writeable};
 use serde_json::Value;
 use std::io::stdout;
 
@@ -13,7 +13,7 @@ impl StreamOutput {
     }
 }
 
-impl Writeable for StreamOutput {
+impl Appendable for StreamOutput {
     fn append(&self, content: Value) -> std::io::Result<()> {
         match self.pretty {
             true => serde_json::to_writer_pretty(stdout(), &content)?,
@@ -22,7 +22,9 @@ impl Writeable for StreamOutput {
         println!();
         Ok(())
     }
+}
 
+impl Writeable for StreamOutput {
     fn set_pretty(&mut self, pretty: bool) {
         self.pretty = pretty;
     }

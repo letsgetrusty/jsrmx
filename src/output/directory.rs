@@ -37,13 +37,6 @@ impl DirectoryOutput {
 }
 
 impl Writeable for DirectoryOutput {
-    fn append(&self, _content: Value) -> std::io::Result<()> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Cannot append to a directory output",
-        ))
-    }
-
     fn set_pretty(&mut self, pretty: bool) {
         self.pretty = pretty;
     }
