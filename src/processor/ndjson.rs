@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use super::json_field::JsonField;
 use crate::{
     input::{InputDirectory, JsonReaderInput, JsonSource},
-    output::{Appendable, Output},
+    output::{Appendable, Writeable},
 };
 use serde_json::Value;
 
@@ -61,14 +61,14 @@ impl NdjsonBundler {
 
 pub struct NdjsonUnbundler {
     input: JsonReaderInput,
-    output: Output,
+    output: Arc<RwLock<dyn Writeable>>,
     unescape_fields: Option<Vec<String>>,
 }
 
 impl NdjsonUnbundler {
     pub fn new(
         input: JsonReaderInput,
-        output: Output,
+        output: Arc<RwLock<dyn Writeable>>,
         unescape_fields: Option<Vec<String>>,
     ) -> Self {
         Self {
@@ -125,7 +125,7 @@ impl NdjsonUnbundler {
                 Ok(mut json) => {
                     self.unescape_fields(&mut json);
                     let entry = vec![(name_entry(i, &json), json)];
-                    self.output.write_entries(entry)?
+                    self.output.read().unwrap().write_entries(entry)?
                 }
                 Err(e) if serde_json::Error::is_eof(&e) => break,
                 Err(e) => log::error!("Failed to parse line {}: {}", i, e),

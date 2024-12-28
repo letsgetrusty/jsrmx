@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use jsrmx::{
     input::{InputDirectory, JsonReaderInput, JsonSourceInput},
-    output::{JsonAppendableOutput, Output},
+    output::{JsonAppendableOutput, JsonWritableOutput},
     processor::{json, NdjsonBundler, NdjsonUnbundler},
 };
 
@@ -45,7 +45,7 @@ enum Commands {
         input: JsonReaderInput,
         /// Target output directory or `-` for stdout
         #[arg(default_value = "-")]
-        output: Output,
+        output: JsonWritableOutput,
         /// Only split keys matching regex filter
         #[arg(short, long)]
         filter: Option<String>,
@@ -74,7 +74,7 @@ enum Commands {
         input: JsonReaderInput,
         /// Target output directory or `-` for stdout
         #[arg(default_value = "-")]
-        output: Output,
+        output: JsonWritableOutput,
         /// List of field names to read for filename, uses first non-null value
         #[arg(short, long, value_delimiter = ',')]
         name: Option<Vec<String>>,
@@ -126,18 +126,22 @@ fn main() {
         Commands::Split {
             compact,
             input,
-            mut output,
+            output,
             filter,
             pretty,
         } => {
             if pretty && !compact {
-                output.set_pretty();
+                output.write().unwrap().set_pretty(true);
             };
             let object = input.get_object().expect("Error reading input: {input:?}");
             let entries = json::split(object, filter);
-            output.write_entries(entries).unwrap_or_else(|e| {
-                log::error!("Error splitting: {e}");
-            });
+            output
+                .read()
+                .unwrap()
+                .write_entries(entries)
+                .unwrap_or_else(|e| {
+                    log::error!("Error splitting: {e}");
+                });
         }
         Commands::Bundle {
             dir,
@@ -152,15 +156,15 @@ fn main() {
             compact,
             input,
             name,
-            mut output,
+            output,
             pretty,
             r#type,
             unescape,
         } => {
             if pretty && !compact {
-                output.set_pretty();
+                output.write().unwrap().set_pretty(true);
             }
-            NdjsonUnbundler::new(input, output, unescape)
+            NdjsonUnbundler::new(input, output.0, unescape)
                 .unbundle(name, r#type)
                 .unwrap_or_else(|e| {
                     log::error!("Error unbundling: {e}");

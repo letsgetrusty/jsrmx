@@ -132,3 +132,38 @@ impl Deref for JsonAppendableOutput {
         &self.0
     }
 }
+
+#[derive(Clone)]
+pub struct JsonWritableOutput(pub Arc<RwLock<dyn Writeable>>);
+
+impl std::str::FromStr for JsonWritableOutput {
+    type Err = Report;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input {
+            "-" => Ok(JsonWritableOutput(Arc::new(RwLock::new(
+                StreamOutput::new(false),
+            )))),
+            input => {
+                let path = PathBuf::from(input);
+                if path.is_dir() {
+                    Ok(JsonWritableOutput(Arc::new(RwLock::new(
+                        DirectoryOutput::new(path, false),
+                    ))))
+                } else {
+                    Ok(JsonWritableOutput(Arc::new(RwLock::new(FileOutput::new(
+                        path, false,
+                    )))))
+                }
+            }
+        }
+    }
+}
+
+impl Deref for JsonWritableOutput {
+    type Target = Arc<RwLock<dyn Writeable>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
