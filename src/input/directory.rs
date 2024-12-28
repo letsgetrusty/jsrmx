@@ -4,23 +4,33 @@ use serde_json::Value;
 use std::path::PathBuf;
 
 #[derive(Clone)]
-pub struct InputDirectory(PathBuf);
+pub struct InputDirectory {
+    path: PathBuf,
+}
 
 impl InputDirectory {
     pub fn new(path: PathBuf) -> Self {
-        InputDirectory(path)
+        InputDirectory { path }
     }
 }
 
 impl JsonSource for InputDirectory {
     fn get_entries(&self, sort: bool) -> Vec<(String, Value)> {
-        read_entries(&self.0, sort).expect("Error reading entries from directory")
+        read_entries(&self.path, sort).expect("Error reading entries from directory")
+    }
+
+    fn read_entry(&self) -> Result<(String, Value)> {
+        let file = &self.path;
+        log::info!("Reading file {}", &file.display());
+        let object = read_object(file)?;
+        let name = file.file_stem().unwrap().to_str().unwrap();
+        Ok((name.to_string(), object))
     }
 }
 
 impl AsRef<PathBuf> for InputDirectory {
     fn as_ref(&self) -> &PathBuf {
-        &self.0
+        &self.path
     }
 }
 
@@ -28,7 +38,7 @@ impl std::str::FromStr for InputDirectory {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        Ok(InputDirectory(PathBuf::from(input)))
+        Ok(InputDirectory::new(PathBuf::from(input)))
     }
 }
 

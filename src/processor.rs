@@ -3,4 +3,6 @@ pub mod json;
 /// Encode and decode nested string-escaped JSON objects
 pub mod json_field;
 /// Process newline-delimited lists of JSON objects
-pub mod ndjson;
+mod ndjson;
+
+pub use ndjson::{NdjsonBundler, NdjsonUnbundler};

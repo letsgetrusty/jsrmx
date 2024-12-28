@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use jsrmx::{
     input::{InputDirectory, JsonReaderInput, JsonSourceInput},
     output::Output,
-    processor::{json, ndjson},
+    processor::{json, NdjsonBundler, NdjsonUnbundler},
 };
 
 #[derive(Parser)]
@@ -141,9 +141,11 @@ fn main() {
             dir,
             escape,
             output,
-        } => ndjson::bundle(&dir, &output, escape.unwrap_or_default()).unwrap_or_else(|e| {
-            log::error!("Error bundling: {e}");
-        }),
+        } => NdjsonBundler::new(dir, output)
+            .bundle(escape)
+            .unwrap_or_else(|e| {
+                log::error!("Error bundling: {e}");
+            }),
         Commands::Unbundle {
             compact,
             input,
@@ -156,7 +158,8 @@ fn main() {
             if pretty && !compact {
                 output.set_pretty();
             }
-            ndjson::unbundle(&input, &output, name, r#type, unescape.unwrap_or_default())
+            NdjsonUnbundler::new(input, output)
+                .unbundle(name, r#type, unescape)
                 .unwrap_or_else(|e| {
                     log::error!("Error unbundling: {e}");
                 })

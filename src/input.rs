@@ -11,6 +11,7 @@ use stdin::InputStdin;
 
 pub trait JsonSource: Send + Sync {
     fn get_entries(&self, sort: bool) -> Vec<(String, Value)>;
+    fn read_entry(&self) -> Result<(String, Value)>;
 }
 
 pub trait JsonReader: Send + Sync {

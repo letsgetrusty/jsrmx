@@ -23,8 +23,9 @@ impl InputStdin {
 impl JsonSource for InputStdin {
     fn get_entries(&self, _sort: bool) -> Vec<(String, Value)> {
         let mut entries = Vec::new();
+        let reader = &mut self.reader.lock().expect("Failed to lock stdin reader");
         let mut buf = String::new();
-        while self.read_line(&mut buf).is_ok() {
+        while reader.read_line(&mut buf).is_ok() {
             if buf.is_empty() {
                 break;
             }
@@ -37,6 +38,12 @@ impl JsonSource for InputStdin {
             buf.clear();
         }
         entries
+    }
+
+    fn read_entry(&self) -> Result<(String, Value)> {
+        let mut buf = String::new();
+        self.read_line(&mut buf)?;
+        Ok(serde_json::from_str(&buf)?)
     }
 }
 
