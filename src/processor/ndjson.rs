@@ -66,11 +66,20 @@ impl NdjsonBundler {
 pub struct NdjsonUnbundler {
     input: JsonReaderInput,
     output: Output,
+    unescape_fields: Option<Vec<String>>,
 }
 
 impl NdjsonUnbundler {
-    pub fn new(input: JsonReaderInput, output: Output) -> Self {
-        Self { input, output }
+    pub fn new(
+        input: JsonReaderInput,
+        output: Output,
+        unescape_fields: Option<Vec<String>>,
+    ) -> Self {
+        Self {
+            input,
+            output,
+            unescape_fields,
+        }
     }
 
     /// Unbundles NDJSON file and writes separate JSON files to the specified output.
@@ -85,7 +94,6 @@ impl NdjsonUnbundler {
         &self,
         name: Option<Vec<String>>,
         type_field: Option<String>,
-        unescape_fields: Option<Vec<String>>,
     ) -> std::io::Result<()> {
         let mut i: usize = 0;
         let name_list = match name {
@@ -119,14 +127,7 @@ impl NdjsonUnbundler {
         while let Ok(()) = self.input.read_line(&mut buf) {
             match serde_json::from_str::<Value>(&buf) {
                 Ok(mut json) => {
-                    if let Some(ref unescape_fields) = unescape_fields {
-                        unescape_fields.iter().for_each(|field| {
-                            if let Some(value) = json.pointer_mut(&dots_to_slashes(field)) {
-                                log::debug!("Unescaping field {}", field);
-                                *value = JsonField::from(value.clone()).unescape();
-                            }
-                        });
-                    }
+                    self.unescape_fields(&mut json);
                     let entry = vec![(name_entry(i, &json), json)];
                     self.output.write_entries(entry)?
                 }
@@ -137,6 +138,17 @@ impl NdjsonUnbundler {
             i += 1;
         }
         Ok(())
+    }
+
+    fn unescape_fields(&self, json: &mut Value) {
+        self.unescape_fields.as_ref().map(|fields| {
+            fields.iter().for_each(|field| {
+                json.pointer_mut(&dots_to_slashes(field)).map(|value| {
+                    log::debug!("Unescaping field {}", field);
+                    *value = JsonField::from(value.clone()).unescape();
+                });
+            })
+        });
     }
 }
 

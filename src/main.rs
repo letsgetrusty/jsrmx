@@ -158,8 +158,8 @@ fn main() {
             if pretty && !compact {
                 output.set_pretty();
             }
-            NdjsonUnbundler::new(input, output)
-                .unbundle(name, r#type, unescape)
+            NdjsonUnbundler::new(input, output, unescape)
+                .unbundle(name, r#type)
                 .unwrap_or_else(|e| {
                     log::error!("Error unbundling: {e}");
                 })
