@@ -122,7 +122,7 @@ fn main() {
             }
             output
                 .read()
-                .expect("Error acquiring write lock on output")
+                .expect("Error acquiring read lock on output")
                 .append(merged_object)
                 .unwrap_or_else(|e| log::error!("Error writing to output: {e}"));
         }
