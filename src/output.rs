@@ -2,17 +2,22 @@ mod directory;
 mod file;
 mod stream;
 use directory::DirectoryOutput;
+use eyre::{eyre, Report, Result};
 use file::FileOutput;
 use stream::StreamOutput;
 
 use serde_json::Value;
-use std::path::{Path, PathBuf};
+use std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
+};
 
-trait Appendable {
+pub trait Appendable: Writeable {
     fn append(&self, content: Value) -> std::io::Result<()>;
 }
 
-trait Writeable {
+pub trait Writeable: Send + Sync {
     fn set_pretty(&mut self, pretty: bool);
     fn write_entries(&self, entries: Vec<(String, Value)>) -> std::io::Result<()>;
 }
@@ -92,5 +97,38 @@ impl std::str::FromStr for Output {
             log::info!("Creating file: {}", &path.display());
             Ok(Output::File(FileOutput::new(path, false)))
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct JsonAppendableOutput(pub Arc<RwLock<dyn Appendable>>);
+
+impl std::str::FromStr for JsonAppendableOutput {
+    type Err = Report;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input {
+            "-" => Ok(JsonAppendableOutput(Arc::new(RwLock::new(
+                StreamOutput::new(false),
+            )))),
+            input => {
+                let path = PathBuf::from(input);
+                if path.is_dir() {
+                    Err(eyre!("Cannot append to a directory output: {input}"))
+                } else {
+                    Ok(JsonAppendableOutput(Arc::new(RwLock::new(
+                        FileOutput::new(path, false),
+                    ))))
+                }
+            }
+        }
+    }
+}
+
+impl Deref for JsonAppendableOutput {
+    type Target = Arc<RwLock<dyn Appendable>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

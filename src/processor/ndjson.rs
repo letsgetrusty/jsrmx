@@ -1,17 +1,19 @@
+use std::sync::{Arc, RwLock};
+
 use super::json_field::JsonField;
 use crate::{
     input::{InputDirectory, JsonReaderInput, JsonSource},
-    output::Output,
+    output::{Appendable, Output},
 };
 use serde_json::Value;
 
 pub struct NdjsonBundler {
     input: InputDirectory,
-    output: Output,
+    output: Arc<RwLock<dyn Appendable>>,
 }
 
 impl NdjsonBundler {
-    pub fn new(input: InputDirectory, output: Output) -> Self {
+    pub fn new(input: InputDirectory, output: Arc<RwLock<dyn Appendable>>) -> Self {
         Self { input, output }
     }
 
@@ -23,12 +25,6 @@ impl NdjsonBundler {
     /// * `output` - A reference to an `Output` where the bundled JSON will be written.
 
     pub fn bundle(&self, json_fields: Option<Vec<String>>) -> std::io::Result<()> {
-        if let Output::Directory { .. } = self.output {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Cannot bundle to a directory",
-            ));
-        }
         self.read_entries_to_output(json_fields)
     }
 
@@ -57,7 +53,7 @@ impl NdjsonBundler {
                         }
                     });
                 }
-                self.output.append(json)
+                self.output.read().unwrap().append(json)
             })
             .collect()
     }

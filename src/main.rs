@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use jsrmx::{
     input::{InputDirectory, JsonReaderInput, JsonSourceInput},
-    output::Output,
+    output::{JsonAppendableOutput, Output},
     processor::{json, NdjsonBundler, NdjsonUnbundler},
 };
 
@@ -24,7 +24,7 @@ enum Commands {
         input: JsonSourceInput,
         /// Output filename or `-` for stdout
         #[arg(default_value = "-")]
-        output: Output,
+        output: JsonAppendableOutput,
         /// Only split keys matching regex filter
         #[arg(short, long)]
         filter: Option<String>,
@@ -59,7 +59,7 @@ enum Commands {
         dir: InputDirectory,
         /// Output filename or `-` for stdout
         #[arg(default_value = "-")]
-        output: Output,
+        output: JsonAppendableOutput,
         /// String-escaped nested JSON fields to escape
         #[arg(short, long, value_delimiter = ',')]
         escape: Option<Vec<String>>,
@@ -107,7 +107,7 @@ fn main() {
         Commands::Merge {
             compact,
             input,
-            mut output,
+            output,
             filter,
             pretty,
             sort,
@@ -115,9 +115,11 @@ fn main() {
             let entries = input.get_entries(sort);
             let merged_object = json::merge(entries, filter);
             if pretty && !compact {
-                output.set_pretty();
+                output.write().unwrap().set_pretty(true);
             }
             output
+                .read()
+                .unwrap()
                 .append(merged_object)
                 .unwrap_or_else(|e| log::error!("Error writing to output: {e}"));
         }
@@ -141,7 +143,7 @@ fn main() {
             dir,
             escape,
             output,
-        } => NdjsonBundler::new(dir, output)
+        } => NdjsonBundler::new(dir, output.0)
             .bundle(escape)
             .unwrap_or_else(|e| {
                 log::error!("Error bundling: {e}");
