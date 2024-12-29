@@ -1,5 +1,4 @@
-use super::Writeable;
-use serde::Serialize;
+use super::{Appendable, Writeable};
 use serde_json::Value;
 use std::io::stdout;
 
@@ -14,8 +13,8 @@ impl StreamOutput {
     }
 }
 
-impl Writeable for StreamOutput {
-    fn append<T: Serialize>(&self, content: T) -> std::io::Result<()> {
+impl Appendable for StreamOutput {
+    fn append(&self, content: Value) -> std::io::Result<()> {
         match self.pretty {
             true => serde_json::to_writer_pretty(stdout(), &content)?,
             false => serde_json::to_writer(stdout(), &content)?,
@@ -23,17 +22,11 @@ impl Writeable for StreamOutput {
         println!();
         Ok(())
     }
+}
 
+impl Writeable for StreamOutput {
     fn set_pretty(&mut self, pretty: bool) {
         self.pretty = pretty;
-    }
-
-    fn write<T: Serialize>(&self, content: T) -> std::io::Result<()> {
-        match self.pretty {
-            true => serde_json::to_writer_pretty(stdout(), &content)?,
-            false => serde_json::to_writer(stdout(), &content)?,
-        }
-        Ok(())
     }
 
     fn write_entries(&self, mut entries: Vec<(String, Value)>) -> std::io::Result<()> {

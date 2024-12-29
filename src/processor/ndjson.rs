@@ -1,17 +1,18 @@
 use super::json_field::JsonField;
 use crate::{
     input::{InputDirectory, JsonReaderInput, JsonSource},
-    output::Output,
+    output::{JsonAppendableOutput, JsonWritableOutput},
 };
+use eyre::{eyre, Result};
 use serde_json::Value;
 
 pub struct NdjsonBundler {
     input: InputDirectory,
-    output: Output,
+    output: JsonAppendableOutput,
 }
 
 impl NdjsonBundler {
-    pub fn new(input: InputDirectory, output: Output) -> Self {
+    pub fn new(input: InputDirectory, output: JsonAppendableOutput) -> Self {
         Self { input, output }
     }
 
@@ -22,13 +23,7 @@ impl NdjsonBundler {
     /// * `dir` - A reference to a `PathBuf` representing the directory containing JSON files.
     /// * `output` - A reference to an `Output` where the bundled JSON will be written.
 
-    pub fn bundle(&self, json_fields: Option<Vec<String>>) -> std::io::Result<()> {
-        if let Output::Directory { .. } = self.output {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Cannot bundle to a directory",
-            ));
-        }
+    pub fn bundle(&self, json_fields: Option<Vec<String>>) -> Result<()> {
         self.read_entries_to_output(json_fields)
     }
 
@@ -38,17 +33,17 @@ impl NdjsonBundler {
     ///
     /// * `dir` - A reference to a `PathBuf` representing the directory containing JSON files.
     /// * `output` - A reference to an `Output` where the JSON data will be appended.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `std::io::Error` if any file cannot be processed or if reading fails.
 
-    fn read_entries_to_output(&self, json_fields: Option<Vec<String>>) -> std::io::Result<()> {
+    fn read_entries_to_output(&self, json_fields: Option<Vec<String>>) -> Result<()> {
         log::debug!("Escaping fields: {:?}", json_fields);
+        let output = self
+            .output
+            .read()
+            .map_err(|_| eyre!("Error acquiring read lock on output"))?;
         self.input
             .get_entries(false)
             .drain(..)
-            .map(|(_name, mut json)| {
+            .try_for_each(|(_name, mut json)| {
                 if let Some(ref json_fields) = json_fields {
                     json_fields.iter().for_each(|field| {
                         if let Some(value) = json.pointer_mut(&dots_to_slashes(field)) {
@@ -57,22 +52,21 @@ impl NdjsonBundler {
                         }
                     });
                 }
-                self.output.append(json)
+                output.append(json).map_err(|e| eyre!(e))
             })
-            .collect()
     }
 }
 
 pub struct NdjsonUnbundler {
     input: JsonReaderInput,
-    output: Output,
+    output: JsonWritableOutput,
     unescape_fields: Option<Vec<String>>,
 }
 
 impl NdjsonUnbundler {
     pub fn new(
         input: JsonReaderInput,
-        output: Output,
+        output: JsonWritableOutput,
         unescape_fields: Option<Vec<String>>,
     ) -> Self {
         Self {
@@ -90,11 +84,7 @@ impl NdjsonUnbundler {
     /// * `output` - A reference to an `Output` where the JSON files will be written.
     /// * `name` - An optional name for the JSON objects, used as a key to extract values.
 
-    pub fn unbundle(
-        &self,
-        name: Option<Vec<String>>,
-        type_field: Option<String>,
-    ) -> std::io::Result<()> {
+    pub fn unbundle(&self, name: Option<Vec<String>>, type_field: Option<String>) -> Result<()> {
         let mut i: usize = 0;
         let name_list = match name {
             Some(list) => list
@@ -129,7 +119,10 @@ impl NdjsonUnbundler {
                 Ok(mut json) => {
                     self.unescape_fields(&mut json);
                     let entry = vec![(name_entry(i, &json), json)];
-                    self.output.write_entries(entry)?
+                    self.output
+                        .read()
+                        .map_err(|_| eyre!("Error acquiring read lock on output"))?
+                        .write_entries(entry)?
                 }
                 Err(e) if serde_json::Error::is_eof(&e) => break,
                 Err(e) => log::error!("Failed to parse line {}: {}", i, e),

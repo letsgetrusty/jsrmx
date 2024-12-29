@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use jsrmx::{
     input::{InputDirectory, JsonReaderInput, JsonSourceInput},
-    output::Output,
+    output::{JsonAppendableOutput, JsonWritableOutput},
     processor::{json, NdjsonBundler, NdjsonUnbundler},
 };
 
@@ -24,7 +24,7 @@ enum Commands {
         input: JsonSourceInput,
         /// Output filename or `-` for stdout
         #[arg(default_value = "-")]
-        output: Output,
+        output: JsonAppendableOutput,
         /// Only split keys matching regex filter
         #[arg(short, long)]
         filter: Option<String>,
@@ -45,7 +45,7 @@ enum Commands {
         input: JsonReaderInput,
         /// Target output directory or `-` for stdout
         #[arg(default_value = "-")]
-        output: Output,
+        output: JsonWritableOutput,
         /// Only split keys matching regex filter
         #[arg(short, long)]
         filter: Option<String>,
@@ -59,7 +59,7 @@ enum Commands {
         dir: InputDirectory,
         /// Output filename or `-` for stdout
         #[arg(default_value = "-")]
-        output: Output,
+        output: JsonAppendableOutput,
         /// String-escaped nested JSON fields to escape
         #[arg(short, long, value_delimiter = ',')]
         escape: Option<Vec<String>>,
@@ -74,7 +74,7 @@ enum Commands {
         input: JsonReaderInput,
         /// Target output directory or `-` for stdout
         #[arg(default_value = "-")]
-        output: Output,
+        output: JsonWritableOutput,
         /// List of field names to read for filename, uses first non-null value
         #[arg(short, long, value_delimiter = ',')]
         name: Option<Vec<String>>,
@@ -107,7 +107,7 @@ fn main() {
         Commands::Merge {
             compact,
             input,
-            mut output,
+            output,
             filter,
             pretty,
             sort,
@@ -115,27 +115,39 @@ fn main() {
             let entries = input.get_entries(sort);
             let merged_object = json::merge(entries, filter);
             if pretty && !compact {
-                output.set_pretty();
+                output
+                    .write()
+                    .expect("Error acquiring write lock on output")
+                    .set_pretty(true);
             }
             output
+                .read()
+                .expect("Error acquiring read lock on output")
                 .append(merged_object)
                 .unwrap_or_else(|e| log::error!("Error writing to output: {e}"));
         }
         Commands::Split {
             compact,
             input,
-            mut output,
+            output,
             filter,
             pretty,
         } => {
             if pretty && !compact {
-                output.set_pretty();
+                output
+                    .write()
+                    .expect("Error acquiring write lock on output")
+                    .set_pretty(true);
             };
             let object = input.get_object().expect("Error reading input: {input:?}");
             let entries = json::split(object, filter);
-            output.write_entries(entries).unwrap_or_else(|e| {
-                log::error!("Error splitting: {e}");
-            });
+            output
+                .read()
+                .expect("Error acquiring read lock on output")
+                .write_entries(entries)
+                .unwrap_or_else(|e| {
+                    log::error!("Error splitting: {e}");
+                });
         }
         Commands::Bundle {
             dir,
@@ -150,13 +162,16 @@ fn main() {
             compact,
             input,
             name,
-            mut output,
+            output,
             pretty,
             r#type,
             unescape,
         } => {
             if pretty && !compact {
-                output.set_pretty();
+                output
+                    .write()
+                    .expect("Error acquiring write lock on output")
+                    .set_pretty(true);
             }
             NdjsonUnbundler::new(input, output, unescape)
                 .unbundle(name, r#type)
